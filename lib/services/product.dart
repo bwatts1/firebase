@@ -3,7 +3,7 @@ class Product {
   String name;
   double price;
   String category; 
-  double quantity; 
+  int quantity; 
 
   Product({
     required this.id,
@@ -28,7 +28,7 @@ class Product {
       name: data['name'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
       category: data['category'] ?? 'misc',
-      quantity: (data['quantity'] ?? 1).toDouble(),
+      quantity: data['quantity'] ?? 1,
     );
   }
 }
