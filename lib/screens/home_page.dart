@@ -16,23 +16,26 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
+
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _minPriceController = TextEditingController();
   final TextEditingController _maxPriceController = TextEditingController();
   final TextEditingController _minQuantityController = TextEditingController();
   final TextEditingController _maxQuantityController = TextEditingController();
+  final TextEditingController _categoryFilterController = TextEditingController();
 
   String _searchQuery = '';
-  String _categoryQuery = '';
+  String _selectedCategory = 'All';
+  String _selectedStockStatus = 'All'; // All, Low Stock, In Stock
   double? _minPrice;
   double? _maxPrice;
   int? _minQuantity;
   int? _maxQuantity;
 
-  // Create or Update Product
   Future<void> _createOrUpdate([Product? product]) async {
-    String action = product == null ? 'create' : 'update';
-    if (product != null) {
+    final isUpdate = product != null;
+
+    if (isUpdate) {
       _nameController.text = product.name;
       _priceController.text = product.price.toString();
       _quantityController.text = product.quantity.toString();
@@ -42,99 +45,100 @@ class _HomePageState extends State<HomePage> {
     await showModalBottomSheet(
       isScrollControlled: true,
       context: context,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          top: 20,
-          left: 20,
-          right: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Product Name'),
-            ),
-            TextField(
-              controller: _priceController,
-              decoration: const InputDecoration(labelText: 'Price'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            TextField(
-              controller: _quantityController,
-              decoration: const InputDecoration(labelText: 'Quantity'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _categoryController,
-              decoration: const InputDecoration(labelText: 'Category'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final name = _nameController.text.trim();
-                final price = double.tryParse(_priceController.text) ?? 0;
-                final quantity = int.tryParse(_quantityController.text) ?? 0;
-                final category = _categoryController.text.trim();
+      builder: (ctx) => SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: 20,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Product Name'),
+              ),
+              TextField(
+                controller: _priceController,
+                decoration: const InputDecoration(labelText: 'Price'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              TextField(
+                controller: _quantityController,
+                decoration: const InputDecoration(labelText: 'Quantity'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _categoryController,
+                decoration: const InputDecoration(labelText: 'Category'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  final name = _nameController.text.trim();
+                  final price = double.tryParse(_priceController.text) ?? 0;
+                  final quantity = int.tryParse(_quantityController.text) ?? 0;
+                  final category = _categoryController.text.trim();
 
-                if (name.isEmpty) return;
+                  if (name.isEmpty) return;
 
-                if (action == 'create') {
-                  await _productService.addProduct(name, price, category, quantity);
-                } else {
-                  await _productService.updateProduct(product!.id, name, price, category, quantity);
-                }
+                  if (isUpdate) {
+                    await _productService.updateProduct(product!.id, name, price, category, quantity);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Product updated successfully')),
+                    );
+                  } else {
+                    await _productService.addProduct(name, price, category, quantity);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Product added successfully')),
+                    );
+                  }
 
-                _nameController.clear();
-                _priceController.clear();
-                _quantityController.clear();
-                _categoryController.clear();
-                Navigator.of(ctx).pop();
-              },
-              child: Text(action == 'create' ? 'Create' : 'Update'),
-            ),
-          ],
+                  _nameController.clear();
+                  _priceController.clear();
+                  _quantityController.clear();
+                  _categoryController.clear();
+                  Navigator.of(ctx).pop();
+                },
+                child: Text(isUpdate ? 'Update' : 'Create'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Delete product
   Future<void> _deleteProduct(String id) async {
     await _productService.deleteProduct(id);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Product deleted successfully')),
     );
   }
-
-  // Filtered Stream
   Stream<List<Product>> _getFilteredProducts() {
-    Stream<List<Product>> stream = _productService.getProductList();
+    return _productService.getProductList().map((products) {
+      return products.where((p) {
+        final matchesName = _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery);
 
-    // Apply search by name
-    if (_searchQuery.isNotEmpty) {
-      stream = _productService.searchProductsByName(_searchQuery);
-    }
+        final matchesCategory = _selectedCategory == 'All' ||
+            p.category.toLowerCase() == _selectedCategory.toLowerCase();
 
-    // Apply category filter
-    if (_categoryQuery.isNotEmpty) {
-      stream = _productService.searchProductsByCategory(_categoryQuery);
-    }
+        final matchesStockStatus = _selectedStockStatus == 'All' ||
+            (_selectedStockStatus == 'Low Stock' && p.quantity < 5) ||
+            (_selectedStockStatus == 'In Stock' && p.quantity >= 5);
 
-    // Apply price filter
-    if (_minPrice != null || _maxPrice != null) {
-      stream = _productService.filterByPrice(_minPrice, _maxPrice);
-    }
+        final matchesPrice = (_minPrice == null || p.price >= _minPrice!) &&
+                             (_maxPrice == null || p.price <= _maxPrice!);
 
-    // Apply quantity filter
-    if (_minQuantity != null || _maxQuantity != null) {
-      stream = _productService.filterByQuantity(_minQuantity, _maxQuantity);
-    }
+        final matchesQuantity = (_minQuantity == null || p.quantity >= _minQuantity!) &&
+                                (_maxQuantity == null || p.quantity <= _maxQuantity!);
 
-    return stream;
+        return matchesName && matchesCategory && matchesStockStatus && matchesPrice && matchesQuantity;
+      }).toList();
+    });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -143,7 +147,6 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(10),
         child: Column(
           children: [
-            // Search
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -162,7 +165,36 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             const SizedBox(height: 10),
-            // Filters: price, quantity, category
+            Wrap(
+              spacing: 8.0,
+              children: ['All', 'Electronics', 'Clothing', 'Books'].map((category) {
+                return ChoiceChip(
+                  label: Text(category),
+                  selected: _selectedCategory == category,
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedCategory = selected ? category : 'All';
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8.0,
+              children: ['All', 'Low Stock', 'In Stock'].map((status) {
+                return ChoiceChip(
+                  label: Text(status),
+                  selected: _selectedStockStatus == status,
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedStockStatus = selected ? status : 'All';
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -203,17 +235,6 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _categoryController,
-              decoration: const InputDecoration(
-                labelText: 'Category filter',
-                prefixIcon: Icon(Icons.category),
-              ),
-              onChanged: (value) {
-                setState(() => _categoryQuery = value.trim().toLowerCase());
-              },
-            ),
-            const SizedBox(height: 10),
             Row(
               children: [
                 ElevatedButton(
@@ -235,14 +256,14 @@ class _HomePageState extends State<HomePage> {
                     _maxPriceController.clear();
                     _minQuantityController.clear();
                     _maxQuantityController.clear();
-                    _categoryController.clear();
                     setState(() {
                       _searchQuery = '';
+                      _selectedCategory = 'All';
+                      _selectedStockStatus = 'All';
                       _minPrice = null;
                       _maxPrice = null;
                       _minQuantity = null;
                       _maxQuantity = null;
-                      _categoryQuery = '';
                     });
                   },
                   child: const Text('Reset Filters'),
@@ -250,7 +271,6 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 10),
-            // Product list
             Expanded(
               child: StreamBuilder<List<Product>>(
                 stream: _getFilteredProducts(),
@@ -286,6 +306,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
+                          tileColor: product.quantity < 5 ? Colors.red[50] : null,
                         ),
                       );
                     },
@@ -298,6 +319,7 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createOrUpdate(),
+        tooltip: 'Add Product',
         child: const Icon(Icons.add),
       ),
     );
