@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/product_service.dart';
 import '../services/product.dart';
+import '../screens/data_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -26,7 +27,7 @@ class _HomePageState extends State<HomePage> {
 
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  String _selectedStockStatus = 'All'; // All, Low Stock, In Stock
+  String _selectedStockStatus = 'All';
   double? _minPrice;
   double? _maxPrice;
   int? _minQuantity;
@@ -63,7 +64,8 @@ class _HomePageState extends State<HomePage> {
               TextField(
                 controller: _priceController,
                 decoration: const InputDecoration(labelText: 'Price'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
               TextField(
                 controller: _quantityController,
@@ -85,14 +87,18 @@ class _HomePageState extends State<HomePage> {
                   if (name.isEmpty) return;
 
                   if (isUpdate) {
-                    await _productService.updateProduct(product!.id, name, price, category, quantity);
+                    await _productService.updateProduct(
+                        product!.id, name, price, category, quantity);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Product updated successfully')),
+                      const SnackBar(
+                          content: Text('Product updated successfully')),
                     );
                   } else {
-                    await _productService.addProduct(name, price, category, quantity);
+                    await _productService.addProduct(
+                        name, price, category, quantity);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Product added successfully')),
+                      const SnackBar(
+                          content: Text('Product added successfully')),
                     );
                   }
 
@@ -120,7 +126,8 @@ class _HomePageState extends State<HomePage> {
   Stream<List<Product>> _getFilteredProducts() {
     return _productService.getProductList().map((products) {
       return products.where((p) {
-        final matchesName = _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery);
+        final matchesName =
+            _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery);
 
         final matchesCategory = _selectedCategory == 'All' ||
             p.category.toLowerCase() == _selectedCategory.toLowerCase();
@@ -130,12 +137,17 @@ class _HomePageState extends State<HomePage> {
             (_selectedStockStatus == 'In Stock' && p.quantity >= 5);
 
         final matchesPrice = (_minPrice == null || p.price >= _minPrice!) &&
-                             (_maxPrice == null || p.price <= _maxPrice!);
+            (_maxPrice == null || p.price <= _maxPrice!);
 
-        final matchesQuantity = (_minQuantity == null || p.quantity >= _minQuantity!) &&
-                                (_maxQuantity == null || p.quantity <= _maxQuantity!);
+        final matchesQuantity =
+            (_minQuantity == null || p.quantity >= _minQuantity!) &&
+                (_maxQuantity == null || p.quantity <= _maxQuantity!);
 
-        return matchesName && matchesCategory && matchesStockStatus && matchesPrice && matchesQuantity;
+        return matchesName &&
+            matchesCategory &&
+            matchesStockStatus &&
+            matchesPrice &&
+            matchesQuantity;
       }).toList();
     });
   }
@@ -167,7 +179,8 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 10),
             Wrap(
               spacing: 8.0,
-              children: ['All', 'Electronics', 'Clothing', 'Books'].map((category) {
+              children: ['All', 'Electronics', 'Clothing', 'Books']
+                  .map((category) {
                 return ChoiceChip(
                   label: Text(category),
                   selected: _selectedCategory == category,
@@ -220,7 +233,8 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: TextField(
                     controller: _minQuantityController,
-                    decoration: const InputDecoration(labelText: 'Min Quantity'),
+                    decoration:
+                        const InputDecoration(labelText: 'Min Quantity'),
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -228,7 +242,8 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: TextField(
                     controller: _maxQuantityController,
-                    decoration: const InputDecoration(labelText: 'Max Quantity'),
+                    decoration:
+                        const InputDecoration(labelText: 'Max Quantity'),
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -306,7 +321,8 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          tileColor: product.quantity < 5 ? Colors.red[50] : null,
+                          tileColor:
+                              product.quantity < 5 ? Colors.red[50] : null,
                         ),
                       );
                     },
@@ -317,10 +333,32 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _createOrUpdate(),
-        tooltip: 'Add Product',
-        child: const Icon(Icons.add),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const SizedBox(width: 20),
+          FloatingActionButton(
+            heroTag: 'infoBtn',
+            backgroundColor: Colors.blueGrey,
+            tooltip: 'Information',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DashboardPage()),
+              );
+            },
+            child: const Icon(Icons.info_outline),
+          ),
+          const Spacer(),
+          FloatingActionButton(
+            heroTag: 'addBtn',
+            onPressed: () => _createOrUpdate(),
+            tooltip: 'Add Product',
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(width: 20),
+        ],
       ),
     );
   }
